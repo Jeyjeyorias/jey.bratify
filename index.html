@@ -4,15 +4,44 @@
   <meta charset="UTF-8">
   <title>Bratify Clone</title>
   <style>
+    :root {
+      --color-bg: #f9fafb;
+      --color-text: #111827;
+      --color-border: #d1d5db;
+      --color-preview-bg: #ffffff;
+      --color-primary: #4f46e5;
+      --color-secondary: #e5e7eb;
+      --color-green: #22c55e;
+      --color-footer: #888;
+      --transition-fast: 180ms;
+      --transition-medium: 300ms;
+    }
+
+    /* Dark mode variables (applied when body.dark-mode present) */
+    body.dark-mode {
+      --color-bg: #0b1020;
+      --color-text: #e6eef8;
+      --color-border: #2b2f3a;
+      --color-preview-bg: #0f1724;
+      --color-primary: #6366f1;
+      --color-secondary: #1f2937;
+      --color-green: #06b6d4;
+      --color-footer: #aaa;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      background: #f9fafb;
+      background: var(--color-bg);
+      color: var(--color-text);
       margin: 0;
       padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      transition: background var(--transition-medium) ease, color var(--transition-medium) ease;
+      min-height: 100vh;
     }
+
     h1 { margin-bottom: 10px; }
     .container {
       display: grid;
@@ -21,61 +50,93 @@
       width: 90%;
       max-width: 1100px;
     }
+
     textarea {
       width: 100%;
       height: 150px;
       padding: 10px;
       font-size: 16px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-border);
       border-radius: 6px;
       resize: none;
+      background: var(--color-preview-bg);
+      color: var(--color-text);
+      transition: background var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease;
     }
+
     .controls label {
       display: block;
       font-size: 14px;
       margin-top: 10px;
     }
+
     select, input[type="color"], input[type="range"] {
       width: 100%;
       margin-top: 5px;
+      background: var(--color-preview-bg);
+      color: var(--color-text);
+      transition: background var(--transition-fast) ease, color var(--transition-fast) ease;
     }
+
     .preview {
-      border: 1px solid #ccc;
+      border: 1px solid var(--color-border);
       border-radius: 6px;
       min-height: 250px;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: white;
+      background: var(--color-preview-bg);
+      transition: background var(--transition-medium) ease, border-color var(--transition-medium) ease;
     }
+
     .buttons {
       margin-top: 15px;
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
     }
+
     button {
       padding: 8px 14px;
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      transition: background var(--transition-fast) ease, color var(--transition-fast) ease, transform 120ms ease;
     }
-    button.primary { background: #4f46e5; color: white; }
-    button.secondary { background: #e5e7eb; }
-    button.green { background: #22c55e; color: white; }
 
-    
+    button.primary { background: var(--color-primary); color: white; }
+    button.secondary { background: var(--color-secondary); }
+    button.green { background: var(--color-green); color: white; }
+
+    /* Mode toggle button (top-right) */
+    .mode-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      padding: 7px 20px;
+      border-radius: 20px;
+      background: var(--color-secondary);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      font-size: 15px;
+      cursor: pointer;
+      transition: background var(--transition-fast) ease, color var(--transition-fast) ease, transform 120ms ease;
+    }
+
+    /* Small press animation class - applied briefly via JS */
+    .mode-toggle.anim { transform: scale(0.96); }
+
     @font-face {
       font-family: "ThatThatNewPixel";
       src: url("thatthatnewpixelfamilytest-round.otf") format("opentype");
       font-display: swap;
     }
-
-
   </style>
 </head>
 <body>
+  <button id="modeToggle" class="mode-toggle" aria-pressed="false">🌙 Dark Mode</button>
   <h1>Bratify-Style Text Styler</h1>
   <div class="container">
     <div class="controls">
@@ -149,6 +210,33 @@
 
   <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
+    // Dark/Light mode persistence and toggle
+    (function() {
+      const modeToggle = document.getElementById('modeToggle');
+      const darkClass = 'dark-mode';
+
+      function setMode(isDark) {
+        document.body.classList.toggle(darkClass, isDark);
+        modeToggle.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+        modeToggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+        try { localStorage.setItem('bratify-dark', isDark ? '1' : '0'); } catch (e) {}
+      }
+
+      // Load saved preference
+      try {
+        const saved = localStorage.getItem('bratify-dark');
+        if (saved === '1') setMode(true);
+      } catch (e) {}
+
+      modeToggle.addEventListener('click', () => {
+          const isDark = document.body.classList.toggle(darkClass);
+          // briefly animate the button
+          modeToggle.classList.add('anim');
+          setTimeout(() => modeToggle.classList.remove('anim'), 120);
+          setMode(isDark);
+      });
+    })();
+
     const textInput = document.getElementById("textInput");
     const textColor = document.getElementById("textColor");
     const bgColor = document.getElementById("bgColor");
