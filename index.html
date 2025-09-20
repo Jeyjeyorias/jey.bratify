@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bratify Clone</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9fafb;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 { margin-bottom: 10px; }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      width: 90%;
+      max-width: 1100px;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: none;
+    }
+    .controls label {
+      display: block;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    select, input[type="color"], input[type="range"] {
+      width: 100%;
+      margin-top: 5px;
+    }
+    .preview {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      min-height: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: white;
+    }
+    .buttons {
+      margin-top: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button.primary { background: #4f46e5; color: white; }
+    button.secondary { background: #e5e7eb; }
+    button.green { background: #22c55e; color: white; }
+
+    
+    @font-face {
+      font-family: "ThatThatNewPixel";
+      src: url("thatthatnewpixelfamilytest-round.otf") format("opentype");
+      font-display: swap;
+    }
+
+
+  </style>
+</head>
+<body>
+  <h1>Bratify-Style Text Styler</h1>
+  <div class="container">
+    <div class="controls">
+      <label for="textInput">Text</label>
+      <textarea id="textInput">Type your text here...</textarea>
+
+      <label for="textColor">Text Color</label>
+      <input type="color" id="textColor" value="#111827">
+
+      <label for="bgColor">Background</label>
+      <input type="color" id="bgColor" value="#ffffff">
+
+      <label for="fontSize">Font Size (px)</label>
+      <input type="range" id="fontSize" min="12" max="200" value="48">
+      <span id="fontSizeValue">48</span>
+
+      <label for="fontWeight">Weight</label>
+      <select id="fontWeight">
+        <option value="400">400</option>
+        <option value="500">500</option>
+        <option value="600">600</option>
+        <option value="700" selected>700</option>
+        <option value="800">800</option>
+        <option value="900">900</option>
+      </select>
+
+      <label for="lineHeight">Line Height</label>
+      <input type="range" id="lineHeight" min="0.8" max="2.5" step="0.1" value="1.2">
+      <span id="lineHeightValue">1.2</span>
+
+      <label for="textAlign">Alignment</label>
+      <select id="textAlign">
+        <option value="left">Left</option>
+        <option value="center" selected>Center</option>
+        <option value="right">Right</option>
+      </select>
+
+      <label for="fontFamily">Font</label>
+      <select id="fontFamily">
+        <option value="ThatThatNewPixel">That That New Pixel</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="Courier New, monospace">Monospace</option>
+        <option value="Georgia, serif">Serif</option>
+      </select>
+
+      <label for="fontUpload">Upload Font</label>
+      <input type="file" id="fontUpload" accept=".ttf,.otf,.woff,.woff2">
+
+      <div class="buttons">
+        <button class="primary" onclick="downloadPNG()">Download PNG</button>
+        <button class="secondary" onclick="downloadTXT()">Download TXT</button>
+        <button class="green" onclick="copyText()">Copy</button>
+      </div>
+    </div>
+
+    <div class="preview" id="previewArea">
+      <div id="previewText">Type your text here...</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script>
+    const textInput = document.getElementById("textInput");
+    const textColor = document.getElementById("textColor");
+    const bgColor = document.getElementById("bgColor");
+    const fontSize = document.getElementById("fontSize");
+    const fontSizeValue = document.getElementById("fontSizeValue");
+    const fontWeight = document.getElementById("fontWeight");
+    const lineHeight = document.getElementById("lineHeight");
+    const lineHeightValue = document.getElementById("lineHeightValue");
+    const textAlign = document.getElementById("textAlign");
+    const fontFamily = document.getElementById("fontFamily");
+    const previewText = document.getElementById("previewText");
+    const previewArea = document.getElementById("previewArea");
+    const fontUpload = document.getElementById("fontUpload");
+
+    function updatePreview() {
+      previewText.textContent = textInput.value;
+      previewText.style.color = textColor.value;
+      previewArea.style.background = bgColor.value;
+      previewText.style.fontSize = fontSize.value + "px";
+      fontSizeValue.textContent = fontSize.value;
+      previewText.style.fontWeight = fontWeight.value;
+      previewText.style.lineHeight = lineHeight.value;
+      lineHeightValue.textContent = lineHeight.value;
+      previewText.style.textAlign = textAlign.value;
+      previewText.style.fontFamily = fontFamily.value;
+    }
+
+    textInput.addEventListener("input", updatePreview);
+    textColor.addEventListener("input", updatePreview);
+    bgColor.addEventListener("input", updatePreview);
+    fontSize.addEventListener("input", updatePreview);
+    fontWeight.addEventListener("change", updatePreview);
+    lineHeight.addEventListener("input", updatePreview);
+    textAlign.addEventListener("change", updatePreview);
+    fontFamily.addEventListener("change", updatePreview);
+
+    fontUpload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const name = file.name.replace(/\..+$/, "");
+      const newFontName = "UploadedFont_" + name;
+
+      const style = document.createElement("style");
+      style.innerHTML = `@font-face { font-family: '${newFontName}'; src: url('${url}'); }`;
+      document.head.appendChild(style);
+
+      const option = document.createElement("option");
+      option.value = newFontName;
+      option.textContent = "Uploaded: " + name;
+      fontFamily.appendChild(option);
+      fontFamily.value = newFontName;
+      updatePreview();
+    });
+
+    function downloadPNG() {
+      html2canvas(previewArea, { backgroundColor: null, scale: 2 }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = "bratified-text.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
+    }
+
+    function downloadTXT() {
+      const blob = new Blob([textInput.value], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "bratified-text.txt";
+      link.click();
+    }
+
+    function copyText() {
+      navigator.clipboard.writeText(textInput.value).then(() => {
+        alert("Copied to clipboard!");
+      });
+    }
+
+    updatePreview();
+  </script>
+</body>
+  <footer style="width:100%;text-align:center;margin-top:40px;color:#888;font-size:14px;">
+    2025 @ Jeyward - Bratify Free Use
+  </footer>
+</html>
