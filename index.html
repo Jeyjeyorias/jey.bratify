@@ -90,6 +90,32 @@
       transition: background var(--transition-medium) ease, border-color var(--transition-medium) ease;
     }
 
+    /* helper classes to replace inline styles */
+    .inline-controls { display:inline-flex; align-items:center; gap:10px; margin-top:8px; }
+    .row-controls { display:flex; gap:8px; align-items:center; }
+    .small-reset { margin-left:6px; }
+    .center-block { margin-top:20px; text-align:center; }
+    footer.site-footer { width:100%; text-align:center; margin-top:40px; color:var(--color-footer); font-size:14px; }
+
+    /* Responsive layout: stack columns under 800px */
+    @media (max-width: 800px) {
+      .container { grid-template-columns: 1fr; }
+      .inline-controls { flex-direction:column; align-items:stretch; gap:8px; }
+      .row-controls { flex-wrap:wrap; }
+      .mode-toggle { right: 12px; top: 12px; padding:6px 12px; }
+      .preview { min-height: 180px; }
+    }
+
+    /* Make preview text draggable */
+    #previewText {
+      touch-action: none; /* enable pointer events without pan gestures */
+      -webkit-user-select: none;
+      user-select: none;
+      cursor: grab;
+      transition: transform 120ms ease;
+      display: inline-block;
+    }
+
     .buttons {
       margin-top: 15px;
       display: flex;
@@ -149,6 +175,10 @@
       <label for="bgColor">Background</label>
       <input type="color" id="bgColor" value="#ffffff">
 
+  <label for="bgUpload">Upload Background Image</label>
+  <input type="file" id="bgUpload" accept="image/*">
+  <button type="button" id="clearBg" class="small-reset">Clear Background Image</button>
+
       <label for="fontSize">Font Size (px)</label>
       <input type="range" id="fontSize" min="12" max="200" value="48">
       <span id="fontSizeValue">48</span>
@@ -185,6 +215,15 @@
       <label for="fontUpload">Upload Font</label>
       <input type="file" id="fontUpload" accept=".ttf,.otf,.woff,.woff2">
 
+      <label for="rotateDeg">Rotate (deg)</label>
+  <div class="row-controls">
+        <button type="button" id="rotateLeft">◀</button>
+        <input type="range" id="rotateDeg" min="0" max="360" value="0">
+        <button type="button" id="rotateRight">▶</button>
+        <span id="rotateValue">0°</span>
+  <button type="button" id="resetRotate" class="small-reset">Reset</button>
+      </div>
+
       <div class="buttons">
         <button class="primary" onclick="downloadPNG()">Download PNG</button>
         <button class="secondary" onclick="downloadTXT()">Download TXT</button>
@@ -195,9 +234,9 @@
     <div class="preview" id="previewArea">
       <div id="previewText">Type your text here...</div>
     </div>
-    <div style="margin-top:20px; text-align:center;">
+  <div class="center-block">
       <strong>Resize / Adjust the Ratio:</strong>
-      <div style="display:inline-flex; align-items:center; gap:10px; margin-top:8px;">
+  <div class="inline-controls">
         <label for="previewWidth">Width %</label>
         <input type="range" id="previewWidth" min="20" max="100" value="100">
         <span id="previewWidthValue">100</span>
@@ -250,15 +289,40 @@
     const previewText = document.getElementById("previewText");
     const previewArea = document.getElementById("previewArea");
     const fontUpload = document.getElementById("fontUpload");
+    // Flip controls (may be absent if user reverted previous edits)
+    const flipHorizontal = document.getElementById('flipHorizontal');
+    const flipVertical = document.getElementById('flipVertical');
+    const resetTransform = document.getElementById('resetTransform');
+    // Rotation elements (already present in DOM)
+    const rotateDeg = document.getElementById('rotateDeg');
+    const rotateValue = document.getElementById('rotateValue');
+    const rotateLeft = document.getElementById('rotateLeft');
+    const rotateRight = document.getElementById('rotateRight');
+    const resetRotate = document.getElementById('resetRotate');
     const previewWidth = document.getElementById("previewWidth");
     const previewWidthValue = document.getElementById("previewWidthValue");
     const previewHeight = document.getElementById("previewHeight");
     const previewHeightValue = document.getElementById("previewHeightValue");
+  const bgUpload = document.getElementById('bgUpload');
+  const clearBg = document.getElementById('clearBg');
+  let currentBgUrl = null;
+  let flipX = false;
+  let flipY = false;
+  let rotation = 0; // degrees
+  // Drag/translate state (percent of preview area)
+  let tx = 0, ty = 0; // translation in percent
+  let isDragging = false;
+  let dragStart = { x: 0, y: 0 };
 
     function updatePreview() {
       previewText.textContent = textInput.value;
       previewText.style.color = textColor.value;
-      previewArea.style.background = bgColor.value;
+      // If a background image is set via upload, prefer that; otherwise use color
+      if (currentBgUrl) {
+        previewArea.style.background = `url('${currentBgUrl}') center/cover no-repeat`;
+      } else {
+        previewArea.style.background = bgColor.value;
+      }
       previewText.style.fontSize = fontSize.value + "px";
       fontSizeValue.textContent = fontSize.value;
       previewText.style.fontWeight = fontWeight.value;
@@ -266,6 +330,10 @@
       lineHeightValue.textContent = lineHeight.value;
       previewText.style.textAlign = textAlign.value;
       previewText.style.fontFamily = fontFamily.value;
+  // Compose transform: translate, then scale (flips), then rotate
+  const sx = flipX ? -1 : 1;
+  const sy = flipY ? -1 : 1;
+  previewText.style.transform = `translate(${tx}%, ${ty}%) scale(${sx}, ${sy}) rotate(${rotation}deg)`;
       // Actually resize preview area
       previewArea.style.width = previewWidth.value + '%';
       previewArea.style.height = previewHeight.value + '%';
@@ -284,6 +352,25 @@
     previewWidth.addEventListener("input", updatePreview);
     previewHeight.addEventListener("input", updatePreview);
 
+    bgUpload.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (currentBgUrl) {
+        try { URL.revokeObjectURL(currentBgUrl); } catch (e) {}
+      }
+      currentBgUrl = URL.createObjectURL(file);
+      updatePreview();
+    });
+
+    clearBg.addEventListener('click', () => {
+      if (currentBgUrl) {
+        try { URL.revokeObjectURL(currentBgUrl); } catch (e) {}
+        currentBgUrl = null;
+      }
+      bgUpload.value = '';
+      updatePreview();
+    });
+
     fontUpload.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -300,6 +387,99 @@
       option.textContent = "Uploaded: " + name;
       fontFamily.appendChild(option);
       fontFamily.value = newFontName;
+      updatePreview();
+    });
+
+    // Wire flip controls if present
+    if (flipHorizontal) {
+      flipHorizontal.addEventListener('change', (e) => {
+        flipX = !!e.target.checked;
+        updatePreview();
+      });
+    }
+    if (flipVertical) {
+      flipVertical.addEventListener('change', (e) => {
+        flipY = !!e.target.checked;
+        updatePreview();
+      });
+    }
+    if (resetTransform) {
+      resetTransform.addEventListener('click', () => {
+        flipX = false; flipY = false;
+        if (flipHorizontal) flipHorizontal.checked = false;
+        if (flipVertical) flipVertical.checked = false;
+        previewText.style.transform = '';
+        updatePreview();
+      });
+    }
+
+    // Wire rotation controls if present
+    if (rotateDeg) {
+      rotateDeg.addEventListener('input', (e) => {
+        rotation = parseInt(e.target.value, 10) || 0;
+        if (rotateValue) rotateValue.textContent = rotation + '°';
+        updatePreview();
+      });
+    }
+    if (rotateLeft) {
+      rotateLeft.addEventListener('click', () => {
+        rotation = (rotation - 15 + 360) % 360;
+        if (rotateDeg) rotateDeg.value = rotation;
+        if (rotateValue) rotateValue.textContent = rotation + '°';
+        updatePreview();
+      });
+    }
+    if (rotateRight) {
+      rotateRight.addEventListener('click', () => {
+        rotation = (rotation + 15) % 360;
+        if (rotateDeg) rotateDeg.value = rotation;
+        if (rotateValue) rotateValue.textContent = rotation + '°';
+        updatePreview();
+      });
+    }
+    if (resetRotate) {
+      resetRotate.addEventListener('click', () => {
+        rotation = 0;
+        if (rotateDeg) rotateDeg.value = rotation;
+        if (rotateValue) rotateValue.textContent = rotation + '°';
+        updatePreview();
+      });
+    }
+
+    // Pointer-based dragging for previewText
+    previewText.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      previewText.setPointerCapture(e.pointerId);
+      dragStart.x = e.clientX;
+      dragStart.y = e.clientY;
+      previewText.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const rect = previewArea.getBoundingClientRect();
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      dragStart.x = e.clientX;
+      dragStart.y = e.clientY;
+      // convert to percent relative to preview area
+      const dxPct = (dx / rect.width) * 100;
+      const dyPct = (dy / rect.height) * 100;
+      tx += dxPct;
+      ty += dyPct;
+      updatePreview();
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      try { previewText.releasePointerCapture(e.pointerId); } catch (err) {}
+      previewText.style.cursor = 'grab';
+    });
+
+    // Double-click on previewText to reset position
+    previewText.addEventListener('dblclick', () => {
+      tx = 0; ty = 0;
       updatePreview();
     });
 
@@ -330,7 +510,7 @@
     updatePreview();
   </script>
 </body>
-  <footer style="width:100%;text-align:center;margin-top:40px;color:#888;font-size:14px;">
+  <footer class="site-footer">
     2025 @ Jeyward - Bratify Free Use
   </footer>
 </html>
